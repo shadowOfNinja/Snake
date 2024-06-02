@@ -24,7 +24,7 @@ public class SnakeGame extends JPanel implements ActionListener, KeyListener {
     ArrayList<Tile> snakeBody;
 
     //food
-    Tile food;
+    Tile food,food2;
     Random random;
 
     //game logic
@@ -46,6 +46,7 @@ public class SnakeGame extends JPanel implements ActionListener, KeyListener {
         snakeBody = new ArrayList<Tile>();
 
         food = new Tile(10, 10);
+        food2 = new Tile(-1, -1);
         random = new Random();
         placeFood();
 
@@ -74,6 +75,10 @@ public class SnakeGame extends JPanel implements ActionListener, KeyListener {
         g.setColor(Color.red);
         g.fill3DRect(food.x*tileSize, food.y*tileSize, tileSize, tileSize, true);
 
+        //Food 2
+        g.setColor(Color.red);
+        g.fill3DRect(food2.x*tileSize, food2.y*tileSize, tileSize, tileSize, true);
+
         //Snake Head
         g.setColor(Color.orange);
         g.fill3DRect(snakeHead.x*tileSize, snakeHead.y*tileSize, tileSize, tileSize, true);
@@ -89,17 +94,76 @@ public class SnakeGame extends JPanel implements ActionListener, KeyListener {
         g.setFont(new Font("Arial", Font.PLAIN, 16));
         if (gameOver) {
             g.setColor(Color.red);
-            g.drawString("Game Over: " + String.valueOf(snakeBody.size()), tileSize - 16, tileSize);
+            g.drawString("Game Over: " + String.valueOf(snakeBody.size())  + " - Press space to play again.", tileSize - 16, tileSize);
         }
         else {
+            g.setColor(Color.green);
             g.drawString("Score: " + String.valueOf(snakeBody.size()), tileSize - 16, tileSize);
+
+            // Draw message to unpause the game if the timer is stopped
+            if (gameLoop.isRunning() == false) {
+                g.drawString("Press 'P' to unpause", 230, 300);
+            }
+        }
+	}
+    
+    public void placeFood(){
+        int randomX = -1;
+        int randomY = -1;
+        int randomFood2 = -1;
+        boolean canPlace = false;
+
+        while (!canPlace) {
+            randomX = random.nextInt(boardWidth/tileSize);
+            randomY = random.nextInt(boardHeight/tileSize);
+
+            canPlace = spaceUnoccupied(randomX,randomY);
+        }  
+        food.x = randomX;
+		food.y = randomY;
+
+        // Check if we should try to place a second food
+        if (food2.x == -1 && food2.y == -1) {
+            randomFood2 = random.nextInt(10);
+            if (randomFood2 == 9) {
+                canPlace = false;
+                while (!canPlace) {
+                    randomX = random.nextInt(boardWidth/tileSize);
+                    randomY = random.nextInt(boardHeight/tileSize);
+        
+                    canPlace = spaceUnoccupied(randomX,randomY);
+                }  
+                food2.x = randomX;
+                food2.y = randomY;
+            }
         }
 	}
 
-    public void placeFood(){
-        food.x = random.nextInt(boardWidth/tileSize);
-		food.y = random.nextInt(boardHeight/tileSize);
-	}
+    public Boolean spaceUnoccupied(int x, int y) {        
+        // check new location doesn't collide with the snake's head
+        if (snakeHead.x != x || snakeHead.y != y) {
+            // New location not at the head. Check all body locations
+            for (int i = 0; i < snakeBody.size(); i++) {
+                if (snakeBody.get(i).x == x && snakeBody.get(i).y == y) {
+                    // we have a collision with the body. 
+                    return false;
+                }
+            }
+            // check location of food 1
+            if (food.x == x && food.y == y) {
+                return false;
+            }
+
+            // check location of food 2
+            if (food2.x == x && food2.y == y) {
+                return false;
+            }
+        }
+        else {
+            return false;
+        }
+        return true;
+    }
 
     public void move() {
         //eat food
@@ -107,6 +171,12 @@ public class SnakeGame extends JPanel implements ActionListener, KeyListener {
             snakeBody.add(new Tile(food.x, food.y));
             placeFood();
         }
+        if (collision(snakeHead, food2)) {
+            snakeBody.add(new Tile(food.x, food.y));
+            food2.x = -1;
+            food2.y = -1;
+        }
+
 
         //move snake body
         for (int i = snakeBody.size()-1; i >= 0; i--) {
@@ -156,7 +226,6 @@ public class SnakeGame extends JPanel implements ActionListener, KeyListener {
 
     @Override
     public void keyPressed(KeyEvent e) {
-        // System.out.println("KeyEvent: " + e.getKeyCode());
         if (e.getKeyCode() == KeyEvent.VK_UP && velocityY != 1) {
             velocityX = 0;
             velocityY = -1;
@@ -172,6 +241,30 @@ public class SnakeGame extends JPanel implements ActionListener, KeyListener {
         else if (e.getKeyCode() == KeyEvent.VK_RIGHT && velocityX != -1) {
             velocityX = 1;
             velocityY = 0;
+        }
+        else if (e.getKeyCode() == KeyEvent.VK_P && !gameOver ) {
+            // Pause the game
+            if (gameLoop.isRunning()) {
+                gameLoop.stop();
+            }
+            else {
+                gameLoop.start();
+            }
+            repaint();
+        }
+        else if (e.getKeyCode() == KeyEvent.VK_SPACE && gameOver) {
+            // Reset the game with the spacebar upon game over
+            gameOver = false;
+            snakeBody.clear();
+            snakeHead.x = 5;
+            snakeHead.y = 6;
+            velocityX = 1;
+            velocityY = 0;
+            food.x = 10;
+            food.y = 10;
+            gameLoop.restart();
+            move();
+            repaint();
         }
     }
 
